@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>MediaPipe YAMNet Audio Classifier</title>
+</head>
+
+<body>
+    <h1>MediaPipe YAMNet Runner</h1>
+    <div id="status">Loading...</div>
+    <script type="module">
+        import { AudioClassifier, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-audio@0.10.9/audio_bundle.mjs';
+
+        let classifier;
+        const modelAssetPath = 'https://storage.googleapis.com/mediapipe-models/audio_classifier/yamnet/float32/1/yamnet.tflite';
+
+        // Global AudioContext for decoding (Prevent creating 3000+ contexts)
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        window.runner = {};
+
+        window.runner.loadModel = async () => {
+            try {
+                console.log("Loading MediaPipe Audio Tasks...");
+                const audio = await FilesetResolver.forAudioTasks(
+                    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-audio@0.10.9/wasm"
+                );
+
+                console.log("Loading YAMNet TFLite Model...");
+                classifier = await AudioClassifier.createFromOptions(audio, {
+                    baseOptions: {
+                        modelAssetPath: modelAssetPath
+                    }
+                });
+
+                document.getElementById('status').innerText = 'YAMNet Loaded!';
+                console.log("YAMNet Loaded Successfully via MediaPipe");
+                return true;
+            } catch (e) {
+                console.error("Model Load Error:", e);
+                return false;
+            }
+        };
+
+        // Resample helper (YAMNet usually wants 16k, but MediaPipe might handle it. 
+        // We will provide 16kHz to be safe as YAMNet is trained on 16k)
+        async function resampleTo16k(audioBuffer) {
+            if (audioBuffer.sampleRate === 16000) return audioBuffer;
+            const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * 16000, 16000);
+            const source = offlineCtx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(offlineCtx.destination);
+            source.start();
+            return await offlineCtx.startRendering();
+        }
+
+        window.runner.processAudioFile = async (fileUrl) => {
+            try {
+                if (!classifier) throw new Error("Classifier not loaded");
+
+                // 1. Fetch & Decode
+                const response = await fetch(fileUrl);
+                const arrayBuffer = await response.arrayBuffer();
+                // Use global audioCtx
+                const decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+                // 2. Resample to 16kHz
+                // Note: MediaPipe classify method takes an AudioData object or Float32Array.
+                // If we pass Float32Array, we usually need to specify sample rate if it differs from model?
+                // Actually MediaPipe web API usually creates a wrapper.
+                // However, let's try direct resample to 16k + extraction.
+                const resampled = await resampleTo16k(decodedBuffer);
+                const float32Data = resampled.getChannelData(0);
+
+                // 3. Inference
+                // classifier.classify(audioData, timestampMs)
+                // But for a whole file clip, we typically just run it.
+                // Since our chunks are 1s (matching YAMNet window), we can just run on the buffer.
+                // MediaPipe YAMNet runs on 0.975s windows usually.
+
+                // We need to pass the data correctly. 
+                // Using the 'classify' method on Float32Array might default to model sample rate?
+                // Let's assume standard usage: classifier.classify(audioData) 
+
+                // Note: The API `classify` might take a timestamp.
+                // `classifier.classify(input: Float32Array, sampleRate: number, timestampMs: number)`
+
+                const results = classifier.classify(float32Data, 16000);
+
+                // results is Array<AudioClassifierResult> (one per timestamp if streaming, or one list?)
+                // Actually classify returns a list of classifications usually if input is long?
+                // or just one ClassificationResult.
+
+                if (!results || results.length === 0) return [];
+
+                // Get the first result (most relevant for this short clip)
+                // Or average?
+                // results[0].classifications[0].categories -> list of { categoryName, score }
+
+                const categories = results[0].classifications[0].categories;
+
+                // Sort
+                categories.sort((a, b) => b.score - a.score);
+
+                // Return simplified objects
+                return categories.slice(0, 50).map(c => ({
+                    label: c.categoryName,
+                    score: c.score
+                }));
+
+            } catch (e) {
+                console.error("Inference Error:", e);
+                return [];
+            }
+        };
+
+    </script>
+</body>
+
+</html>
