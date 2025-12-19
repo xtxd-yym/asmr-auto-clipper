@@ -64,19 +64,123 @@ export async function convertFormat(config: ConvertConfig): Promise<{ outputPath
         try {
             const command = ffmpeg(inputPath);
 
+            // 检测输入文件是否有视频流
+            const inputExt = path.extname(inputPath).toLowerCase().slice(1);
+            const audioOnlyFormats = ['mp3', 'aac', 'wav', 'flac', 'm4a', 'ogg', 'opus', 'wma'];
+            const isInputAudioOnly = audioOnlyFormats.includes(inputExt);
+            const isOutputAudioOnly = audioOnlyFormats.includes(outputFormat);
+
             // 根据格式设置参数
-            if (['mp3', 'aac', 'wav', 'flac'].includes(outputFormat)) {
+            if (isOutputAudioOnly) {
+                // 输出纯音频格式
                 command.noVideo();
-                if (outputFormat === 'mp3') {
-                    command.audioBitrate(quality);
-                    command.audioCodec('libmp3lame');
-                } else if (outputFormat === 'aac') {
-                    command.audioBitrate(quality);
-                    command.audioCodec('aac');
-                } else if (outputFormat === 'wav') {
-                    command.audioCodec('pcm_s16le');
-                } else if (outputFormat === 'flac') {
-                    command.audioCodec('flac');
+
+                switch (outputFormat) {
+                    case 'mp3':
+                        command.audioCodec('libmp3lame');
+                        command.audioBitrate(quality);
+                        break;
+                    case 'aac':
+                        command.audioCodec('aac');
+                        command.audioBitrate(quality);
+                        break;
+                    case 'm4a':
+                        command.audioCodec('aac');
+                        command.audioBitrate(quality);
+                        command.outputOptions(['-f', 'ipod']); // M4A container
+                        break;
+                    case 'wav':
+                        command.audioCodec('pcm_s16le');
+                        command.audioFrequency(44100);
+                        break;
+                    case 'flac':
+                        command.audioCodec('flac');
+                        command.audioQuality(5); // 压缩等级
+                        break;
+                    case 'ogg':
+                        command.audioCodec('libvorbis');
+                        command.audioBitrate(quality);
+                        break;
+                    case 'opus':
+                        command.audioCodec('libopus');
+                        command.audioBitrate(quality);
+                        break;
+                    case 'wma':
+                        command.audioCodec('wmav2');
+                        command.audioBitrate(quality);
+                        break;
+                }
+            } else if (isInputAudioOnly && !isOutputAudioOnly) {
+                // 音频转视频容器（如MP3→MP4）：创建纯音频MP4
+                console.log('[Converter] Converting audio to video container (audio-only)');
+                command.noVideo(); // 不添加视频流
+
+                switch (outputFormat) {
+                    case 'mp4':
+                    case 'mov':
+                        command.audioCodec('aac');
+                        command.audioBitrate(quality);
+                        break;
+                    case 'avi':
+                        command.audioCodec('mp3');
+                        command.audioBitrate(quality);
+                        break;
+                    case 'mkv':
+                        command.audioCodec('aac');
+                        command.audioBitrate(quality);
+                        break;
+                    case 'webm':
+                        command.audioCodec('libopus');
+                        command.audioBitrate(quality);
+                        break;
+                    case 'flv':
+                        command.audioCodec('mp3');
+                        command.audioBitrate(quality);
+                        break;
+                }
+            } else {
+                // 视频转视频：保留视频流,转换音频
+                console.log('[Converter] Converting video format');
+
+                switch (outputFormat) {
+                    case 'mp4':
+                        command.videoCodec('libx264');
+                        command.audioCodec('aac');
+                        command.audioBitrate(quality);
+                        command.outputOptions([
+                            '-preset', 'fast',
+                            '-crf', '23'
+                        ]);
+                        break;
+                    case 'mov':
+                        command.videoCodec('libx264');
+                        command.audioCodec('aac');
+                        command.audioBitrate(quality);
+                        break;
+                    case 'avi':
+                        command.videoCodec('mpeg4');
+                        command.audioCodec('mp3');
+                        command.audioBitrate(quality);
+                        break;
+                    case 'mkv':
+                        command.videoCodec('libx264');
+                        command.audioCodec('aac');
+                        command.audioBitrate(quality);
+                        break;
+                    case 'webm':
+                        command.videoCodec('libvpx-vp9');
+                        command.audioCodec('libopus');
+                        command.audioBitrate(quality);
+                        command.outputOptions([
+                            '-crf', '30',
+                            '-b:v', '0'
+                        ]);
+                        break;
+                    case 'flv':
+                        command.videoCodec('flv');
+                        command.audioCodec('mp3');
+                        command.audioBitrate(quality);
+                        break;
                 }
             }
 

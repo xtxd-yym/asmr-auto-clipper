@@ -32,8 +32,58 @@ const FormatConverter = () => {
 
     const handleSelectFile = async () => {
         const file = await window.electronAPI.selectFile();
-        if (file) setSelectedFile(file);
+        if (file) {
+            setSelectedFile(file);
+
+            // 智能设置默认输出格式
+            const ext = file.split('.').pop()?.toLowerCase() || '';
+            const audioFormats = ['mp3', 'aac', 'm4a', 'wav', 'flac', 'ogg', 'opus', 'wma'];
+            const isInputAudio = audioFormats.includes(ext);
+
+            // 如果是音频文件，默认转MP3；如果是视频，默认转MP4
+            setOutputFormat(isInputAudio ? 'mp3' : 'mp4');
+        }
     };
+
+    // 根据输入文件类型获取可用的输出格式
+    const getAvailableFormats = () => {
+        if (!selectedFile) {
+            // 未选择文件时显示所有格式
+            return {
+                audio: ['mp3', 'aac', 'm4a', 'wav', 'flac', 'ogg', 'opus', 'wma'],
+                video: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv']
+            };
+        }
+
+        const ext = selectedFile.split('.').pop()?.toLowerCase() || '';
+        const audioFormats = ['mp3', 'aac', 'm4a', 'wav', 'flac', 'ogg', 'opus', 'wma'];
+        const videoFormats = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv', 'mpeg', 'mpg'];
+
+        const isInputAudio = audioFormats.includes(ext);
+        const isInputVideo = videoFormats.includes(ext);
+
+        if (isInputAudio) {
+            // 音频文件：可以转换为其他音频格式或视频容器（纯音频）
+            return {
+                audio: audioFormats.filter(f => f !== ext), // 排除自身格式
+                video: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv']
+            };
+        } else if (isInputVideo) {
+            // 视频文件：可以转换为音频（提取音轨）或其他视频格式
+            return {
+                audio: audioFormats,
+                video: videoFormats.filter(f => f !== ext)
+            };
+        }
+
+        // 未知格式：显示所有选项
+        return {
+            audio: audioFormats,
+            video: videoFormats
+        };
+    };
+
+    const availableFormats = getAvailableFormats();
 
     const handleConvert = async () => {
         if (!selectedFile) return;
@@ -94,13 +144,60 @@ const FormatConverter = () => {
                         onChange={(e) => setOutputFormat(e.target.value)}
                         disabled={processing}
                     >
-                        <option value="mp3">MP3 (Audio)</option>
-                        <option value="aac">AAC (Audio)</option>
-                        <option value="wav">WAV (Audio)</option>
-                        <option value="flac">FLAC (Audio)</option>
-                        <option value="mp4">MP4 (Video)</option>
-                        <option value="avi">AVI (Video)</option>
-                        <option value="mkv">MKV (Video)</option>
+                        {availableFormats.audio.length > 0 && (
+                            <optgroup label="🎵 Audio Formats">
+                                {availableFormats.audio.map(format => {
+                                    const labels: Record<string, string> = {
+                                        mp3: 'MP3 - Most Compatible',
+                                        aac: 'AAC - High Quality',
+                                        m4a: 'M4A - Apple Devices',
+                                        wav: 'WAV - Lossless',
+                                        flac: 'FLAC - Compressed Lossless',
+                                        ogg: 'OGG - Open Source',
+                                        opus: 'OPUS - Modern Codec',
+                                        wma: 'WMA - Windows Media'
+                                    };
+
+                                    // 如果是视频转音频，添加提示
+                                    const ext = selectedFile?.split('.').pop()?.toLowerCase() || '';
+                                    const videoFormats = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv', 'mpeg', 'mpg'];
+                                    const isVideoToAudio = videoFormats.includes(ext);
+                                    const suffix = isVideoToAudio ? ' (Extract Audio)' : '';
+
+                                    return (
+                                        <option key={format} value={format}>
+                                            {labels[format] || format.toUpperCase()}{suffix}
+                                        </option>
+                                    );
+                                })}
+                            </optgroup>
+                        )}
+                        {availableFormats.video.length > 0 && (
+                            <optgroup label="🎬 Video Formats">
+                                {availableFormats.video.map(format => {
+                                    const labels: Record<string, string> = {
+                                        mp4: 'MP4 - Most Compatible',
+                                        mov: 'MOV - Apple QuickTime',
+                                        avi: 'AVI - Windows Classic',
+                                        mkv: 'MKV - High Quality',
+                                        webm: 'WebM - Web Optimized',
+                                        flv: 'FLV - Flash Video'
+                                    };
+
+                                    // 如果是音频转视频，添加提示
+                                    const ext = selectedFile?.split('.').pop()?.toLowerCase() || '';
+                                    const audioFormats = ['mp3', 'aac', 'm4a', 'wav', 'flac', 'ogg', 'opus', 'wma'];
+                                    const isAudioToVideo = audioFormats.includes(ext);
+                                    const suffix = isAudioToVideo ? ' (Audio-only)' : '';
+
+                                    return (
+                                        <option key={format} value={format}>
+                                            {labels[format] || format.toUpperCase()}{suffix}
+                                        </option>
+                                    );
+                                })}
+                            </optgroup>
+                        )}
                     </select>
                 </div>
 
