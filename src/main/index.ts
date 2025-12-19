@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { startAIProcessing, getAIProgress } from './ai/processor';
 import { convertFormat, getConverterProgress, trimMedia, concatMedia, getMediaDuration } from './converter/format-converter';
+import { readMetadata, writeMetadata } from './metadata/metadata-editor';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -123,6 +124,18 @@ ipcMain.handle('select-file', async () => {
     return result.filePaths[0] || null;
 });
 
+// Video-only file selection (for Frame Capture)
+ipcMain.handle('select-video-file', async () => {
+    const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [
+            { name: 'Video Files', extensions: ['mp4', 'avi', 'mkv', 'mov', 'webm', 'flv', 'wmv', 'mpeg', 'mpg'] },
+            { name: 'All Files', extensions: ['*'] }
+        ],
+    });
+    return result.filePaths[0] || null;
+});
+
 // AI Processing (legacy)
 ipcMain.handle('start-processing', async (_event, config) => {
     try {
@@ -180,4 +193,102 @@ ipcMain.handle('get-media-duration', async (_event, filePath: string) => {
         return 0; // Return 0 on error
     }
 });
+
+// Frame Capture - Save Frame
+ipcMain.handle('save-frame', async (_event, frameData: any, outputPath: string) => {
+    try {
+        const buffer = Buffer.from(frameData);
+        fs.writeFileSync(outputPath, buffer);
+        return true;
+    } catch (error: any) {
+        console.error('[IPC] Failed to save frame:', error);
+        return false;
+    }
+});
+
+// Frame Capture - Select Save Path
+ipcMain.handle('select-save-path', async (_event, suggestedName: string) => {
+    const result = await dialog.showSaveDialog({
+        defaultPath: suggestedName,
+        filters: [
+            { name: 'Images', extensions: ['png', 'jpg', 'jpeg'] },
+            { name: 'PNG', extensions: ['png'] },
+            { name: 'JPEG', extensions: ['jpg', 'jpeg'] },
+        ],
+    });
+    return result.filePath || null;
+});
+
+// Metadata Editor - Select Audio File
+ipcMain.handle('select-audio-file', async () => {
+    const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [
+            { name: 'Audio Files', extensions: ['mp3', 'flac', 'wav', 'aac', 'm4a', 'ogg', 'wma'] },
+            { name: 'All Files', extensions: ['*'] }
+        ],
+    });
+    return result.filePaths[0] || null;
+});
+
+// Metadata Editor - Select Image File
+ipcMain.handle('select-image-file', async () => {
+    const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [
+            { name: 'Images', extensions: ['jpg', 'jpeg', 'png'] },
+            { name: 'All Files', extensions: ['*'] }
+        ],
+    });
+    return result.filePaths[0] || null;
+});
+
+// Metadata Editor - Read Metadata
+ipcMain.handle('read-metadata', async (_event, filePath: string) => {
+    try {
+        const metadata = await readMetadata(filePath);
+        return metadata;
+    } catch (error: any) {
+        console.error('[IPC] Failed to read metadata:', error);
+        throw error;
+    }
+});
+
+// Metadata Editor - Write Metadata
+ipcMain.handle('write-metadata', async (_event, filePath: string, metadata: any) => {
+    try {
+        await writeMetadata(filePath, metadata);
+    } catch (error: any) {
+        console.error('[IPC] Failed to write metadata:', error);
+
+        // Provide user-friendly error messages
+        if (error.code === 'EPERM' || error.message?.includes('EPERM') || error.message?.includes('operation not permitted')) {
+            const fileName = path.basename(filePath);
+            throw new Error(
+                `Failed to save metadata: File access denied.\n\n` +
+                `The file "${fileName}" may be:\n` +
+                `• Marked as read-only (right-click → Properties → uncheck "Read-only")\n` +
+                `• Currently opened in another program (close it and try again)\n` +
+                `• Protected by system permissions\n\n` +
+                `Please check the file and try again.`
+            );
+        }
+
+        throw error;
+    }
+});
+
+// Metadata Editor - Read Image as Base64
+ipcMain.handle('read-image-as-base64', async (_event, imagePath: string) => {
+    try {
+        const imageBuffer = fs.readFileSync(imagePath);
+        const ext = path.extname(imagePath).toLowerCase();
+        const mimeType = ext === '.png' ? 'image/png' : 'image/jpeg';
+        return `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
+    } catch (error: any) {
+        console.error('[IPC] Failed to read image:', error);
+        throw error;
+    }
+});
+
 
