@@ -1,15 +1,5 @@
 import { useState, useEffect } from 'react';
 
-declare global {
-    interface Window {
-        electronAPI: {
-            selectFile: () => Promise<string | null>;
-            convertFormat: (config: any) => Promise<any>;
-            getConverterProgress: () => Promise<any>;
-        };
-    }
-}
-
 const FormatConverter = () => {
     const [selectedFile, setSelectedFile] = useState<string | null>(null);
     const [outputFormat, setOutputFormat] = useState('mp3');

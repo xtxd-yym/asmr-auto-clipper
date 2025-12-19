@@ -1,9 +1,23 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, protocol } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 import { startAIProcessing, getAIProgress } from './ai/processor';
-import { convertFormat, getConverterProgress } from './converter/format-converter';
+import { convertFormat, getConverterProgress, trimMedia, concatMedia, getMediaDuration } from './converter/format-converter';
 
 let mainWindow: BrowserWindow | null = null;
+
+// Register custom protocol BEFORE app is ready
+protocol.registerSchemesAsPrivileged([
+    {
+        scheme: 'media',
+        privileges: {
+            secure: true,
+            supportFetchAPI: true,
+            bypassCSP: true,
+            stream: true  // Critical for video/audio streaming
+        }
+    }
+]);
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -13,6 +27,7 @@ function createWindow() {
             preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false,
             contextIsolation: true,
+            webSecurity: false, // Allow loading local files
         },
     });
 
@@ -29,7 +44,58 @@ function createWindow() {
     });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+    // Register protocol handler for media:// URLs using newer handle API
+    protocol.handle('media', async (request) => {
+        try {
+            const url = request.url.substring(8); // Remove 'media://' prefix
+            const decodedPath = decodeURI(url);
+
+            console.log('[Protocol] Loading media file:', decodedPath);
+
+            // Check if file exists
+            if (!fs.existsSync(decodedPath)) {
+                console.error('[Protocol] File not found:', decodedPath);
+                return new Response('File not found', { status: 404 });
+            }
+
+            // Read the file
+            const buffer = fs.readFileSync(decodedPath);
+
+            // Determine MIME type based on file extension
+            const ext = path.extname(decodedPath).toLowerCase();
+            const mimeTypes: Record<string, string> = {
+                '.mp4': 'video/mp4',
+                '.webm': 'video/webm',
+                '.ogv': 'video/ogg',
+                '.avi': 'video/x-msvideo',
+                '.mov': 'video/quicktime',
+                '.mkv': 'video/x-matroska',
+                '.mp3': 'audio/mpeg',
+                '.wav': 'audio/wav',
+                '.ogg': 'audio/ogg',
+                '.aac': 'audio/aac',
+                '.flac': 'audio/flac'
+            };
+
+            const mimeType = mimeTypes[ext] || 'application/octet-stream';
+
+            console.log(`[Protocol] Serving file: ${decodedPath} (${mimeType})`);
+
+            return new Response(buffer, {
+                status: 200,
+                headers: {
+                    'Content-Type': mimeType,
+                    'Content-Length': buffer.length.toString(),
+                    'Accept-Ranges': 'bytes',
+                }
+            });
+        } catch (error) {
+            console.error('[Protocol] Error loading media:', error);
+            return new Response('Internal Server Error', { status: 500 });
+        }
+    });
+
     createWindow();
 
     app.on('activate', () => {
@@ -84,3 +150,34 @@ ipcMain.handle('convert-format', async (_event, config) => {
 ipcMain.handle('get-converter-progress', async () => {
     return getConverterProgress();
 });
+
+// Media Editing
+ipcMain.handle('trim-media', async (_event, config) => {
+    try {
+        const result = await trimMedia(config);
+        return { success: true, data: result };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('concat-media', async (_event, config) => {
+    try {
+        const result = await concatMedia(config);
+        return { success: true, data: result };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+});
+
+// Get Media Duration
+ipcMain.handle('get-media-duration', async (_event, filePath: string) => {
+    try {
+        const duration = await getMediaDuration(filePath);
+        return duration;
+    } catch (error: any) {
+        console.error('[IPC] Failed to get media duration:', error);
+        return 0; // Return 0 on error
+    }
+});
+

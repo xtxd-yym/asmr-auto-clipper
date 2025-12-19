@@ -230,3 +230,172 @@ export async function convertFormat(config: ConvertConfig): Promise<{ outputPath
         }
     });
 }
+
+// ================== Media Info Functions ==================
+
+/**
+ * Get accurate media duration using ffprobe
+ */
+export async function getMediaDuration(filePath: string): Promise<number> {
+    return new Promise<number>((resolve, reject) => {
+        ffmpeg.ffprobe(filePath, (err: Error, metadata: any) => {
+            if (err) {
+                console.error('[MediaInfo] Failed to get duration:', err.message);
+                reject(err);
+            } else {
+                const duration = metadata.format.duration;
+                console.log(`[MediaInfo] Duration: ${duration}s (${Math.floor(duration / 60)}m ${Math.floor(duration % 60)}s)`);
+                resolve(duration);
+            }
+        });
+    });
+}
+
+// ================== Media Editing Functions ==================
+
+export interface TrimConfig {
+    inputPath: string;
+    outputPath: string;
+    startTime: number;  // seconds
+    endTime: number;    // seconds
+    lossless?: boolean; // use stream copy (faster but less precise)
+}
+
+export async function trimMedia(config: TrimConfig): Promise<{ outputPath: string }> {
+    const { inputPath, outputPath, startTime, endTime, lossless = false } = config;
+
+    console.log(`[Trim] Start: ${startTime}s, End: ${endTime}s, Lossless: ${lossless}`);
+
+    return new Promise((resolve, reject) => {
+        try {
+            const command = ffmpeg(inputPath);
+            const duration = endTime - startTime;
+
+            if (lossless) {
+                // Fast mode: no re-encoding, just copy streams
+                command
+                    .setStartTime(startTime)
+                    .setDuration(duration)
+                    .outputOptions(['-c', 'copy']); // Copy codec (no re-encoding)
+                console.log('[Trim] Using lossless mode (stream copy)');
+            } else {
+                // Precise mode: re-encode for frame-accurate trimming
+                command
+                    .setStartTime(startTime)
+                    .setDuration(duration)
+                    .videoCodec('libx264')
+                    .audioCodec('aac')
+                    .outputOptions([
+                        '-preset', 'fast',
+                        '-crf', '23'
+                    ]);
+                console.log('[Trim] Using precise mode (re-encoding)');
+            }
+
+            command
+                .output(outputPath)
+                .on('start', () => {
+                    console.log('[Trim] FFmpeg started');
+                })
+                .on('progress', (progress: any) => {
+                    if (progress.percent) {
+                        console.log(`[Trim] Progress: ${Math.floor(progress.percent)}%`);
+                    }
+                })
+                .on('end', () => {
+                    console.log('[Trim] Complete!');
+                    resolve({ outputPath });
+                })
+                .on('error', (err: Error) => {
+                    console.error('[Trim] Error:', err);
+                    reject(new Error(`Trim failed: ${err.message}`));
+                })
+                .run();
+        } catch (error) {
+            console.error('[Trim] Error:', error);
+            reject(error);
+        }
+    });
+}
+
+export interface ConcatConfig {
+    inputPaths: string[];
+    outputPath: string;
+    outputFormat: string;
+}
+
+export async function concatMedia(config: ConcatConfig): Promise<{ outputPath: string }> {
+    const { inputPaths, outputPath, outputFormat } = config;
+
+    console.log(`[Concat] Merging ${inputPaths.length} clips`);
+
+    if (inputPaths.length === 0) {
+        throw new Error('No input files provided');
+    }
+
+    if (inputPaths.length === 1) {
+        // Single file, just copy
+        console.log('[Concat] Single file, copying...');
+        fs.copyFileSync(inputPaths[0], outputPath);
+        return { outputPath };
+    }
+
+    // FFmpeg concat demuxer requires a text file listing all inputs
+    const listFilePath = path.join(path.dirname(outputPath), 'concat_list.txt');
+    const listContent = inputPaths.map(p => `file '${p.replace(/'/g, "'\\''")}'`).join('\n');
+
+    fs.writeFileSync(listFilePath, listContent, 'utf-8');
+    console.log('[Concat] Created file list:', listFilePath);
+
+    return new Promise((resolve, reject) => {
+        try {
+            ffmpeg()
+                .input(listFilePath)
+                .inputOptions([
+                    '-f', 'concat',
+                    '-safe', '0'
+                ])
+                .outputOptions(['-c', 'copy']) // No re-encoding for speed
+                .output(outputPath)
+                .on('start', (cmd: string) => {
+                    console.log('[Concat] FFmpeg command:', cmd);
+                    console.log('[Concat] Started');
+                })
+                .on('progress', (progress: any) => {
+                    if (progress.percent) {
+                        console.log(`[Concat] Progress: ${Math.floor(progress.percent)}%`);
+                    }
+                })
+                .on('end', () => {
+                    console.log('[Concat] Complete!');
+                    // Clean up temp file
+                    try {
+                        fs.unlinkSync(listFilePath);
+                    } catch (e) {
+                        console.warn('[Concat] Could not delete temp file:', e);
+                    }
+                    resolve({ outputPath });
+                })
+                .on('error', (err: Error) => {
+                    console.error('[Concat] Error:', err);
+                    // Clean up temp file on error
+                    try {
+                        fs.unlinkSync(listFilePath);
+                    } catch (e) {
+                        // ignore
+                    }
+                    reject(new Error(`Concatenation failed: ${err.message}`));
+                })
+                .run();
+        } catch (error) {
+            console.error('[Concat] Error:', error);
+            // Clean up temp file
+            try {
+                fs.unlinkSync(listFilePath);
+            } catch (e) {
+                // ignore
+            }
+            reject(error);
+        }
+    });
+}
