@@ -91,16 +91,73 @@ body {
   color: #555;
 }
 
-select, input[type="range"] {
+select,
+input[type="range"] {
   width: 100%;
-  padding: 0.75rem;
   border: 2px solid #e5e7eb;
   border-radius: 8px;
   font-size: 1rem;
   transition: border-color 0.3s ease;
 }
 
-select:focus, input:focus {
+select {
+  padding: 0.75rem;
+}
+
+/* Custom range input styling to remove padding */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  outline: none;
+  padding: 0;
+  margin: 0;
+  border: none;
+}
+
+/* Webkit (Chrome, Safari, Edge) */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  cursor: pointer;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+/* Firefox */
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  cursor: pointer;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+  transform: scale(1.1);
+}
+
+/* Track styling for Firefox */
+input[type="range"]::-moz-range-track {
+  background: #e5e7eb;
+  border-radius: 4px;
+  height: 8px;
+}
+
+select:focus,
+input:focus {
   outline: none;
   border-color: #667eea;
 }
@@ -202,4 +259,17 @@ select:focus, input:focus {
 .coming-soon p {
   font-size: 1.2rem;
   opacity: 0.9;
+}
+
+/* Modal animations */
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

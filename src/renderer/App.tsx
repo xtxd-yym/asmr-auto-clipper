@@ -3,6 +3,7 @@ import './App.css';
 import Sidebar from './components/Sidebar';
 import FormatConverter from './pages/FormatConverter';
 import SmartEdit from './pages/SmartEdit';
+import ManualEdit from './pages/ManualEdit';
 import Settings from './pages/Settings';
 
 export type PageType = 'converter' | 'smart-edit' | 'manual-edit' | 'ai-tools' | 'settings';
@@ -16,6 +17,8 @@ function App() {
                 return <FormatConverter />;
             case 'smart-edit':
                 return <SmartEdit />;
+            case 'manual-edit':
+                return <ManualEdit />;
             case 'settings':
                 return <Settings />;
             default:
