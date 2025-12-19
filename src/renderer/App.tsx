@@ -2,11 +2,13 @@ import { useState } from 'react';
 import './App.css';
 import Sidebar from './components/Sidebar';
 import FormatConverter from './pages/FormatConverter';
+import FrameCapture from './pages/FrameCapture';
+import MetadataEditor from './pages/MetadataEditor';
 import SmartEdit from './pages/SmartEdit';
 import ManualEdit from './pages/ManualEdit';
 import Settings from './pages/Settings';
 
-export type PageType = 'converter' | 'smart-edit' | 'manual-edit' | 'ai-tools' | 'settings';
+export type PageType = 'converter' | 'frame-capture' | 'metadata-editor' | 'smart-edit' | 'manual-edit' | 'settings';
 
 function App() {
     const [currentPage, setCurrentPage] = useState<PageType>('converter');
@@ -15,6 +17,10 @@ function App() {
         switch (currentPage) {
             case 'converter':
                 return <FormatConverter />;
+            case 'frame-capture':
+                return <FrameCapture />;
+            case 'metadata-editor':
+                return <MetadataEditor />;
             case 'smart-edit':
                 return <SmartEdit />;
             case 'manual-edit':

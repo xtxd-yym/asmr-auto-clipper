@@ -9,9 +9,9 @@ interface SidebarProps {
 const Sidebar = ({ currentPage, onPageChange }: SidebarProps) => {
     const menuItems = [
         { id: 'converter' as PageType, icon: '📁', label: 'Format Converter' },
-        { id: 'smart-edit' as PageType, icon: '✂️', label: 'Smart Edit' },
+        { id: 'frame-capture' as PageType, icon: '📸', label: 'Frame Capture' },
+        { id: 'metadata-editor' as PageType, icon: '🏷️', label: 'Metadata Editor' },
         { id: 'manual-edit' as PageType, icon: '🎵', label: 'Manual Edit' },
-        { id: 'ai-tools' as PageType, icon: '🤖', label: 'AI Tools' },
         { id: 'settings' as PageType, icon: '⚙️', label: 'Settings' },
     ];
 
