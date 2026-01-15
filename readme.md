@@ -1,146 +1,66 @@
-# 🎧 ASMR Auto-Clipper
+# 🎬 MediaForge (formerly ASMR-Toolkit)
 
-An AI-powered desktop application for automatically clipping ASMR audio segments from videos using the YAMNet model.
+![Electron](https://img.shields.io/badge/Electron-39.0-blue?logo=electron)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)
+![FFmpeg](https://img.shields.io/badge/FFmpeg-Powered-green?logo=ffmpeg)
+![TensorFlow.js](https://img.shields.io/badge/AI-TensorFlow.js-orange?logo=tensorflow)
 
-## ✨ Features
+> **A High-Performance, Local-First Desktop Media Studio built with Web Technologies.**
 
-- **Intelligent Audio Classification**: Uses Google's YAMNet model to identify specific sound types (licking, talking, sleep sounds)
-- **Desktop Application**: Built with Electron for cross-platform desktop support
-- **Modern UI**: Beautiful gradient interface with real-time progress tracking
-- **Flexible Configuration**: Adjustable sensitivity thresholds and multiple detection modes
-- **Automated Processing**: Automatically splits, analyzes, and merges audio segments
+MediaForge is a comprehensive desktop application designed to simplify complex media processing tasks. By leveraging the power of **Electron** and **FFmpeg**, coupled with **TensorFlow.js** for on-device AI analysis, it offers a secure, offline-capable environment for content creators.
 
-## 🚀 Quick Start
+<img width="2758" height="1676" alt="image" src="https://github.com/user-attachments/assets/5c943e81-ee86-4b03-b7a9-eeb076e3c12d" />
+
+
+## ✨ Key Features
+
+### 🛠️ Professional Media Processing
+* **Smart Format Converter**: Intelligent transcoding for **14+ formats** (MP4, MKV, FLAC, OPUS, etc.) with auto-bitrate optimization using `fluent-ffmpeg`.
+* **Lossless Trimming**: Edit video/audio clips without re-encoding quality loss using stream copying technology.
+* **Precision Frame Capture**: Extract high-quality PNG/JPG snapshots with **frame-level accuracy (~30ms)** using HTML5 Canvas + Video API.
+
+### 🤖 AI-Powered Audio Analysis (Experimental)
+* **Local Inference**: Integrated **Google's YAMNet model** via a headless Puppeteer runner to perform audio classification purely on-device.
+* **Event Detection**: Automatically detects and isolates specific audio events (e.g., Speech, Silence, Environmental Sounds) for automated clipping.
+* *Note: This feature ensures 100% data privacy as no audio leaves your device.*
+
+### 🏷️ Metadata & Management
+* **ID3 Tag Editor**: Full support for editing metadata (Artist, Album, Genre) and embedding Cover Art for MP3/FLAC/WAV files.
+* **File System Integration**: Native drag-and-drop support and OS-level file association.
+
+## 🏗️ Architecture Highlights
+
+This project demonstrates a production-grade **Modular Monorepo** architecture:
+
+* **Decoupled Design**: Separates the **Renderer** (React UI), **Main Process** (Node.js/FFmpeg), and **AI Service** (Headless Runner).
+* **Non-Blocking IPC**: Implements an asynchronous event-driven communication layer to handle heavy encoding tasks (1GB+ files) without freezing the UI.
+* **Stream Management**: Solves Node.js stream backpressure issues during large file transformations to optimize memory usage.
+
+## 🚀 Tech Stack
+
+* **Core**: Electron 39, React 18, TypeScript, Vite
+* **Media Engine**: fluent-ffmpeg, @ffmpeg-installer, node-id3
+* **AI Engine**: TensorFlow.js, Puppeteer (Headless Mode)
+* **State & UI**: Custom Hooks, CSS Modules, Canvas API
+
+## 📦 Getting Started
 
 ### Prerequisites
-
-- Node.js (v18 or higher)
-- pnpm (recommended) or npm
+* Node.js >= 18
+* pnpm (recommended)
 
 ### Installation
 
 ```bash
-# Install dependencies
+# 1. Clone the repository
+git clone [https://github.com/your-username/media-forge.git](https://github.com/your-username/media-forge.git)
+
+# 2. Install dependencies
 pnpm install
 
-# Build Electron components
-pnpm run build:preload
-pnpm run build:main
-```
-
-### Development
-
-```bash
-# Terminal 1: Start Vite dev server
+# 3. Run in development mode (Concurrent)
 pnpm run dev
 
-# Terminal 2: Launch Electron app
-VITE_DEV_SERVER_URL=http://localhost:5173 npx electron dist-electron/index.js
-```
-
-## 🎨 Usage
-
-1. **Select Video**: Click "Browse File" to choose a video file (.mp4, .avi, .mkv, .mov)
-2. **Configure**: 
-   - Select mode (Licking/Wet Sounds, Talking/Whispering, Sleep Sounds)
-   - Adjust threshold (lower = more sensitive, may include noise)
-3. **Process**: Click "Start Processing" and wait for completion
-4. **Review Results**: 
-   - Kept segments: `ai_tool/kept/`
-   - Discarded segments: `ai_tool/discarded/`
-   - Final output: `output_[mode].mp3`
-
-## 🛠️ Tech Stack
-
-- **Frontend**: React 18 + Vite
-- **Desktop**: Electron 39
-- **AI Model**: YAMNet (TensorFlow.js)
-- **Audio Processing**: FFmpeg + fluent-ffmpeg
-- **Browser Automation**: Puppeteer
-- **Build**: esbuild (main/preload), Vite (renderer)
-
-## 📁 Project Structure
-
-```
-├── src/
-│   ├── main/              # Electron main process
-│   │   ├── index.ts       # App initialization & IPC
-│   │   └── ai/
-│   │       └── processor.ts  # AI processing logic
-│   ├── preload/           # IPC bridge
-│   │   └── index.ts
-│   └── renderer/          # React UI
-│       ├── App.tsx
-│       ├── App.css
-│       └── main.tsx
-├── ai_tool/               # YAMNet model & processing
-│   ├── runner_yamnet.html # Model runner
-│   ├── model.json         # Model architecture
-│   └── weights.bin        # Model weights (5.7MB)
-└── dist-electron/         # Build output
-```
-
-## 🔧 Build Scripts
-
-```json
-{
-  "dev": "npm run build:preload && vite",
-  "build:main": "esbuild src/main/...",
-  "build:preload": "esbuild src/preload/...",
-  "build:win": "npm run build -- --win"
-}
-```
-
-## 🎯 Detection Modes
-
-### Licking/Wet Sounds
-Targets: Kiss, Lip smack, Chewing, Drinking, Water, Liquid, Gurgling, Slurp, etc.
-
-### Talking/Whispering
-Targets: Speech, Whispering, Conversation, Narration
-
-### Sleep Sounds
-Targets: Rain, Water, Wind, Silence, White noise
-
-## 📝 Configuration
-
-- **Threshold Range**: 0.00001 - 0.01
-- **Recommended**: 
-  - High precision: 0.001 - 0.01
-  - Balanced: 0.0001 - 0.001
-  - High recall: 0.00001 - 0.0001
-
-## 🚧 Known Limitations
-
-- Development mode requires two terminal windows
-- Production paths need configuration before packaging (use `app.getPath()`)
-- Model accuracy depends on audio quality and threshold tuning
-
-## 📦 Building for Production
-
-```bash
-# Build Windows executable
+# Build for Windows (Generates .exe installer)
 pnpm run build:win
-
-# Output: release/ASMR Clipper Setup.exe
-```
-
-> ⚠️ Note: Before building for production, update path handling in `processor.ts` to use Electron's `app.getPath()` API for proper resource resolution.
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit issues or pull requests.
-
-## 📄 License
-
-MIT License - see LICENSE file for details
-
-## 🙏 Acknowledgments
-
-- [YAMNet](https://github.com/tensorflow/models/tree/master/research/audioset/yamnet) - Audio event classification model by Google
-- [Electron](https://www.electronjs.org/) - Cross-platform desktop apps
-- [FFmpeg](https://ffmpeg.org/) - Audio/video processing
-
----
-
-**Status**: ✅ Functional (Development) | ⏳ Production packaging pending
